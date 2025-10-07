@@ -1,6 +1,6 @@
 # ContentGen - AI Content Generator PWA
 
-A comprehensive Progressive Web App for generating blog articles and social media posts using AI, built with Next.js and OpenAI.
+ContentGen is a Progressive Web App for generating blog articles and social media posts using AI. It features AI content generation, Google OAuth authentication, content history tracking, and offline capabilities.
 
 ## 🚀 Features
 
