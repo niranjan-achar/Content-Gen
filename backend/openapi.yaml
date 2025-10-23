@@ -1,0 +1,230 @@
+openapi: 3.0.3
+info:
+  title: ContentGen API
+  version: 0.1.0
+  description: Backend API for ContentGen content generation platform
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /auth/validate:
+    post:
+      summary: Validate Supabase JWT token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - access_token
+                - token_type
+              properties:
+                access_token:
+                  type: string
+                token_type:
+                  type: string
+      responses:
+        '200':
+          description: Token validated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sub:
+                    type: string
+                  email:
+                    type: string
+        '401':
+          description: Invalid token
+
+  /generate:
+    post:
+      summary: Generate content
+      tags: [Generate]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - topic
+              properties:
+                type:
+                  type: string
+                  enum: [blog, caption, tweet]
+                topic:
+                  type: string
+      responses:
+        '200':
+          description: Content generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  generated_text:
+                    type: string
+
+  /history:
+    get:
+      summary: List content history
+      tags: [History]
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [blog, caption, tweet]
+      responses:
+        '200':
+          description: List of history items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoryItem'
+
+  /history/{item_id}:
+    delete:
+      summary: Delete history item
+      tags: [History]
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item deleted
+        '404':
+          description: Item not found
+
+  /reminders:
+    get:
+      summary: List reminders
+      tags: [Reminders]
+      responses:
+        '200':
+          description: List of reminders
+    post:
+      summary: Create reminder
+      tags: [Reminders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Reminder'
+      responses:
+        '200':
+          description: Reminder created
+
+  /reminders/{id}:
+    put:
+      summary: Update reminder
+      tags: [Reminders]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Reminder'
+      responses:
+        '200':
+          description: Reminder updated
+        '404':
+          description: Not found
+    delete:
+      summary: Delete reminder
+      tags: [Reminders]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Reminder deleted
+        '404':
+          description: Not found
+
+components:
+  schemas:
+    HistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        type:
+          type: string
+          enum: [blog, caption, tweet]
+        input_text:
+          type: string
+        generated_text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Reminder:
+      type: object
+      required:
+        - title
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        title:
+          type: string
+        topic:
+          type: string
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          format: time
+        daily:
+          type: boolean
+        repeat_days:
+          type: array
+          items:
+            type: integer
+        created_at:
+          type: string
+          format: date-time

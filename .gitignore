@@ -1,0 +1,9 @@
+**/__pycache__/
+**/*.py[cod]
+backend/.env
+frontend/.env
+node_modules/
+dist/
+.venv/
+poetry.lock
+package-lock.json
