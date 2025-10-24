@@ -2,11 +2,12 @@ from datetime import date as DateType
 from datetime import datetime
 from datetime import time as TimeType
 from typing import List, Optional
+from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from .. import db
+from ..supabase_client import supabase_client
 
 router = APIRouter()
 
@@ -24,62 +25,72 @@ class Reminder(BaseModel):
 
 
 @router.get("/")
-async def list_reminders():
+async def list_reminders(authorization: str = Header(None)):
     """List all reminders."""
-    rows = await db.db.fetch_all(query="select * from public.reminders order by created_at desc")
-    return rows
+    auth_token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        auth_token = authorization.split(None, 1)[1]
+
+    reminders = await supabase_client.select(
+        "reminders", order_by="created_at.desc", auth_token=auth_token
+    )
+    return reminders
 
 
 @router.post("/")
-async def create_reminder(r: Reminder):
+async def create_reminder(r: Reminder, authorization: str = Header(None)):
     """Create a new reminder."""
-    query = """
-        insert into public.reminders (user_id, title, topic, date, time, daily, repeat_days) 
-        values (:user_id, :title, :topic, :date, :time, :daily, :repeat_days) 
-        returning id
-    """
-    values = {
-        "user_id": r.user_id or '00000000-0000-0000-0000-000000000000',
+    data = {
+        "user_id": r.user_id or "00000000-0000-0000-0000-000000000000",
         "title": r.title,
         "topic": r.topic,
-        "date": r.date,
-        "time": r.time,
+        "date": str(r.date) if r.date else None,
+        "time": str(r.time) if r.time else None,
         "daily": r.daily,
         "repeat_days": r.repeat_days,
     }
-    row = await db.db.fetch_one(query=query, values=values)
-    return {"id": str(row[0])}
+    auth_token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        auth_token = authorization.split(None, 1)[1]
+
+    result = await supabase_client.insert("reminders", data, auth_token=auth_token)
+    if result:
+        return {"id": result["id"]}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to create reminder")
 
 
 @router.put("/{id}")
-async def update_reminder(id: str, r: Reminder):
+async def update_reminder(id: str, r: Reminder, authorization: str = Header(None)):
     """Update an existing reminder."""
-    query = """
-        update public.reminders 
-        set title = :title, topic = :topic, date = :date, time = :time, daily = :daily, repeat_days = :repeat_days 
-        where id = :id 
-        returning id
-    """
-    values = {
-        "id": id,
+    data = {
         "title": r.title,
         "topic": r.topic,
-        "date": r.date,
-        "time": r.time,
+        "date": str(r.date) if r.date else None,
+        "time": str(r.time) if r.time else None,
         "daily": r.daily,
-        "repeat_days": r.repeat_days
+        "repeat_days": r.repeat_days,
     }
-    row = await db.db.fetch_one(query=query, values=values)
-    if not row:
-        raise HTTPException(status_code=404, detail="Not found")
-    return {"id": str(row[0])}
+    auth_token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        auth_token = authorization.split(None, 1)[1]
+
+    result = await supabase_client.update("reminders", id, data, auth_token=auth_token)
+    if result:
+        return {"id": result["id"]}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to update reminder")
 
 
 @router.delete("/{id}")
-async def delete_reminder(id: str):
+async def delete_reminder(id: str, authorization: str = Header(None)):
     """Delete a reminder by ID."""
-    query = "delete from public.reminders where id = :id returning id"
-    row = await db.db.fetch_one(query=query, values={"id": id})
-    if not row:
+    auth_token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        auth_token = authorization.split(None, 1)[1]
+
+    success = await supabase_client.delete("reminders", id, auth_token=auth_token)
+    if success:
+        return {"deleted": id}
+    else:
         raise HTTPException(status_code=404, detail="Not found")
-    return {"deleted": str(row[0])}

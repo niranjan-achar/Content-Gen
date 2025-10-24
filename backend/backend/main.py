@@ -26,28 +26,46 @@ async def health():
     return {"status": "ok"}
 
 
-from .routers import auth, generate, history, reminders  # noqa: E402
+from .routers import auth, debug, generate, history, reminders, users  # noqa: E402
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(debug.router, prefix="/debug", tags=["debug"])
 app.include_router(generate.router, prefix="/generate", tags=["generate"])
 app.include_router(history.router, prefix="/history", tags=["history"])
 app.include_router(reminders.router, prefix="/reminders", tags=["reminders"])
+app.include_router(users.router, prefix="/users", tags=["users"])
 
 from . import db as _db  # noqa: E402
 
 
 @app.on_event("startup")
 async def _startup():
+    # Skip database connection if using REST API
+    if os.getenv("USE_SUPABASE_REST", "false").lower() == "true":
+        print("🔄 Using Supabase REST API (skipping direct database connection)")
+        return
+
     try:
+        print("🔌 Connecting to database...")
         await _db.connect()
-    except Exception:
-        # allow dev without DB
+        print("✅ Database connected successfully!")
+    except Exception as e:
+        print(f"⚠️ Database connection failed: {e}")
+        print("⚠️ Running in dev mode without database")
         pass
 
 
 @app.on_event("shutdown")
 async def _shutdown():
+    # Skip database disconnection if using REST API
+    if os.getenv("USE_SUPABASE_REST", "false").lower() == "true":
+        print("🔄 REST API mode - no database connection to close")
+        return
+
     try:
+        print("🔌 Disconnecting from database...")
         await _db.disconnect()
-    except Exception:
+        print("✅ Database disconnected")
+    except Exception as e:
+        print(f"⚠️ Database disconnect failed: {e}")
         pass

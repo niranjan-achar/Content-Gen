@@ -1,32 +1,41 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useAuth } from '../contexts/AuthContext'
 
 type ContentType = 'blog' | 'caption' | 'tweet'
 
 export default function Generator() {
+  const { user, session } = useAuth()
   const [type, setType] = useState<ContentType>('blog')
   const [topic, setTopic] = useState('')
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const handleGenerate = async () => {
     if (!topic.trim()) return
     
     setLoading(true)
     setResult('') // Clear previous result
+    setSaveMessage('') // Clear save message
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
       console.log('Calling API:', `${apiUrl}/generate/`)
-      console.log('Request body:', { type, topic, user_id: 'demo-user' })
-      
+      console.log('Request body:', { type, topic, user_id: user?.id })
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
       const response = await fetch(`${apiUrl}/generate/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ 
           type, 
           topic,
-          user_id: 'demo-user' // In production, get from Supabase auth
+          user_id: user?.id || 'anonymous'
         })
       })
       
@@ -41,11 +50,57 @@ export default function Generator() {
       const data = await response.json()
       console.log('Response data:', data)
       setResult(data.generated_text || 'No content generated')
+      // Don't auto-save - user will click "Save to History" button if they want to save
     } catch (error) {
       console.error('Full error:', error)
       setResult(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(result)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000) // Reset after 2 seconds
+  }
+
+  const handleSaveToHistory = async () => {
+    if (!result || !topic.trim()) return
+
+    setSaving(true)
+    setSaveMessage('')
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
+      const response = await fetch(`${apiUrl}/history/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          type,
+          input_text: topic,
+          generated_text: result,
+          user_id: user?.id || 'anonymous'
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        throw new Error('Failed to save to history')
+      }
+
+      setSaveMessage('✅ Saved to history successfully!')
+      setTimeout(() => setSaveMessage(''), 3000)
+    } catch (error) {
+      console.error('Error saving to history:', error)
+      setSaveMessage('❌ Failed to save to history')
+      setTimeout(() => setSaveMessage(''), 3000)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -96,13 +151,30 @@ export default function Generator() {
           <div className="mt-8">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-white font-semibold text-lg">Generated Content</h3>
-              <button
-                onClick={() => navigator.clipboard.writeText(result)}
-                className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition text-sm"
-              >
-                📋 Copy
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCopy}
+                  className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition text-sm font-medium"
+                >
+                  {copied ? '✅ Copied!' : '📋 Copy'}
+                </button>
+                <button
+                  onClick={handleSaveToHistory}
+                  disabled={saving}
+                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-lg transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? '💾 Saving...' : '💾 Save to History'}
+                </button>
+              </div>
             </div>
+            {saveMessage && (
+              <div className={`mb-3 px-4 py-2 rounded-lg text-sm font-medium ${saveMessage.includes('✅')
+                ? 'bg-green-500/20 text-green-200 border border-green-500/30'
+                : 'bg-red-500/20 text-red-200 border border-red-500/30'
+                }`}>
+                {saveMessage}
+              </div>
+            )}
             <div className="bg-black/30 rounded-lg p-6 text-white prose prose-invert prose-lg max-w-none">
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}

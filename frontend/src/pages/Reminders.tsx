@@ -1,4 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { showToast } from '../components/Toast'
+import {
+  requestNotificationPermission,
+  saveReminder as saveReminderNotification,
+  removeReminder as removeReminderNotification,
+  initializeReminders
+} from '../lib/notifications'
 
 interface Reminder {
   id: string
@@ -21,6 +29,7 @@ interface ReminderForm {
 }
 
 export default function Reminders() {
+  const { user, session } = useAuth()
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -34,12 +43,16 @@ export default function Reminders() {
 
   useEffect(() => {
     fetchReminders()
+    // Initialize notification system on component mount
+    initializeReminders()
   }, [])
 
   const fetchReminders = async () => {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-      const response = await fetch(`${apiUrl}/reminders/`)
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      const response = await fetch(`${apiUrl}/reminders/`, { headers })
       const data = await response.json()
       setReminders(data)
     } catch (error) {
@@ -48,48 +61,107 @@ export default function Reminders() {
   }
 
   const handleCreate = async () => {
-    if (!formData.title.trim()) return
+    if (!formData.title.trim()) {
+      showToast('Please enter a title for the reminder', 'warning')
+      return
+    }
+
+    // Request notification permission on first reminder
+    if (reminders.length === 0) {
+      const granted = await requestNotificationPermission()
+      if (!granted) {
+        const proceed = confirm('Notifications are disabled. You won\'t receive reminder alerts. Continue anyway?')
+        if (!proceed) return
+      }
+    }
     
     setLoading(true)
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      console.log('Creating reminder:', formData)
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
       const response = await fetch(`${apiUrl}/reminders/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           title: formData.title,
           topic: formData.topic || null,
           date: formData.date || null,
           time: formData.time || null,
           daily: formData.daily,
-          user_id: 'demo-user' // In production, get from Supabase auth
+          user_id: user?.id || 'anonymous'
         })
       })
-      
-      if (response.ok) {
-        await fetchReminders()
-        setShowForm(false)
-        setFormData({ title: '', topic: '', date: '', time: '', daily: false })
+
+      console.log('Response status:', response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        throw new Error(`Failed to create reminder: ${response.status}`)
       }
+
+      const result = await response.json()
+      console.log('Created reminder:', result)
+
+      // Schedule notification locally
+      if (formData.date && formData.time) {
+        saveReminderNotification({
+          id: result.id,
+          title: formData.title,
+          topic: formData.topic,
+          date: formData.date,
+          time: formData.time,
+          daily: formData.daily
+        })
+      }
+
+      await fetchReminders()
+      setShowForm(false)
+      setFormData({ title: '', topic: '', date: '', time: '', daily: false })
+      showToast('Reminder created successfully!', 'success')
     } catch (error) {
       console.error('Failed to create reminder:', error)
+      showToast(`Failed to create reminder: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
     } finally {
       setLoading(false)
     }
   }
 
   const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this reminder?')) return
+
+    // Remove local notification schedule
+    removeReminderNotification(id)
+
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-      const response = await fetch(`${apiUrl}/reminders/${id}/`, {
-        method: 'DELETE'
+      console.log('Deleting reminder:', id)
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
+      const response = await fetch(`${apiUrl}/reminders/${id}`, {
+        method: 'DELETE',
+        headers
       })
       
-      if (response.ok) {
-        await fetchReminders()
+      console.log('Delete response status:', response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        throw new Error(`Failed to delete reminder: ${response.status}`)
       }
+
+      await fetchReminders()
+      showToast('Reminder deleted successfully!', 'success')
     } catch (error) {
       console.error('Failed to delete reminder:', error)
+      showToast(`Failed to delete reminder: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
     }
   }
 
