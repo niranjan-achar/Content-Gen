@@ -26,7 +26,15 @@ async def health():
     return {"status": "ok"}
 
 
-from .routers import auth, debug, generate, history, reminders, users  # noqa: E402
+from .routers import (  # noqa: E402
+    auth,
+    debug,
+    generate,
+    history,
+    model,
+    reminders,
+    users,
+)
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(debug.router, prefix="/debug", tags=["debug"])
@@ -34,6 +42,7 @@ app.include_router(generate.router, prefix="/generate", tags=["generate"])
 app.include_router(history.router, prefix="/history", tags=["history"])
 app.include_router(reminders.router, prefix="/reminders", tags=["reminders"])
 app.include_router(users.router, prefix="/users", tags=["users"])
+app.include_router(model.router, tags=["model"])  # Custom model info endpoint
 
 from . import db as _db  # noqa: E402
 

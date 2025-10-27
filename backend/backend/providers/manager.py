@@ -3,6 +3,8 @@ from typing import Optional
 
 import httpx
 
+from .custom_model import get_custom_model
+
 
 class BaseProvider:
     """Base class for content generation providers."""
@@ -39,14 +41,18 @@ class GroqProvider(BaseProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.base_url = "https://api.groq.com/openai/v1"
-        
+
     async def generate(self, type: str, topic: str) -> str:
         """Generate content using Groq's API."""
+        print(f"🔍 GroqProvider.generate called")
+        print(f"   API Key present: {bool(self.api_key)}")
+        print(f"   API Key length: {len(self.api_key) if self.api_key else 0}")
+
         if not self.api_key or self.api_key == "your-groq-api-key":
-            print("Warning: No valid Groq API key found, using local provider")
+            print("⚠️  Warning: No valid Groq API key found, using local provider")
             local = LocalProvider()
             return await local.generate(type, topic)
-        
+
         # Define prompts based on content type
         prompts = {
             "blog": f"""Write a detailed, well-structured blog post about "{topic}". 
@@ -66,7 +72,7 @@ Keep it under 150 characters.""",
 Make it engaging, use emojis, include 2-3 hashtags.
 Must be under 280 characters."""
         }
-        
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
@@ -91,18 +97,49 @@ Must be under 280 characters."""
                         "max_tokens": 2000
                     }
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
+                    print(f"✅ Groq API success!")
                     return data["choices"][0]["message"]["content"].strip()
                 else:
-                    print(f"Groq API error: {response.status_code} - {response.text}")
+                    print(
+                        f"❌ Groq API error: {response.status_code} - {response.text}"
+                    )
                     # Fallback to local provider
                     local = LocalProvider()
                     return await local.generate(type, topic)
-                    
+
         except Exception as e:
-            print(f"Error calling Groq API: {e}")
+            print(f"❌ Error calling Groq API: {type(e).__name__}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            # Fallback to local provider
+            local = LocalProvider()
+            return await local.generate(type, topic)
+
+
+class CustomModelProvider(BaseProvider):
+    """
+    Custom Content Generation Model Provider
+    Uses the ContentGen-Gemma-2B model (academic project)
+    """
+
+    def __init__(self, backend: str = "groq"):
+        self.model = get_custom_model(backend=backend)
+        print(
+            f"🤖 Initialized Custom Model: {self.model.model_name} v{self.model.version}"
+        )
+        print(f"📊 Architecture: {self.model.architecture}")
+        print(f"🔢 Parameters: {self.model.parameters}")
+
+    async def generate(self, type: str, topic: str) -> str:
+        """Generate content using the custom model."""
+        try:
+            return await self.model.generate(type, topic)
+        except Exception as e:
+            print(f"Custom model error: {e}")
             # Fallback to local provider
             local = LocalProvider()
             return await local.generate(type, topic)
@@ -116,7 +153,11 @@ class ProviderManager:
     def get_provider(self) -> BaseProvider:
         if self._provider is None:
             provider_type = os.getenv("CONTENT_PROVIDER", "local")
-            if provider_type == "groq":
+            if provider_type == "custom":
+                # Use your custom model (Gemma-based)
+                backend = os.getenv("CUSTOM_MODEL_BACKEND", "groq")
+                self._provider = CustomModelProvider(backend=backend)
+            elif provider_type == "groq":
                 api_key = os.getenv("GROQ_API_KEY")
                 if not api_key:
                     raise RuntimeError("GROQ_API_KEY not set")

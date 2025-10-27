@@ -14,6 +14,7 @@ export default function Generator() {
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
   const [copied, setCopied] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<'groq' | 'custom'>('groq') // Model selection state
 
   const handleGenerate = async () => {
     if (!topic.trim()) return
@@ -35,7 +36,8 @@ export default function Generator() {
         body: JSON.stringify({ 
           type, 
           topic,
-          user_id: user?.id || 'anonymous'
+          user_id: user?.id || 'anonymous',
+          model: selectedModel  // Send selected model to backend
         })
       })
       
@@ -137,6 +139,36 @@ export default function Generator() {
             placeholder="Enter your topic..."
             className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-white/50 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
           />
+        </div>
+
+        {/* Model Selection Toggle */}
+        <div className="mb-6">
+          <label className="block text-white font-semibold mb-3">AI Model</label>
+          <div className="relative inline-flex w-full bg-white/10 rounded-lg p-1 border border-white/20">
+            <button
+              onClick={() => setSelectedModel('groq')}
+              className={`flex-1 px-6 py-3 rounded-md font-semibold transition-all duration-200 ${selectedModel === 'groq'
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
+                  : 'text-white/70 hover:text-white'
+                }`}
+            >
+              ⚡ Groq AI
+            </button>
+            <button
+              onClick={() => setSelectedModel('custom')}
+              className={`flex-1 px-6 py-3 rounded-md font-semibold transition-all duration-200 ${selectedModel === 'custom'
+                  ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-lg'
+                  : 'text-white/70 hover:text-white'
+                }`}
+            >
+              🤖 Custom AI
+            </button>
+          </div>
+          <p className="text-white/60 text-sm mt-2">
+            {selectedModel === 'groq'
+              ? '⚡ Using Groq API with Llama 3.3 70B model'
+              : '🤖 Using Custom AI model (Gemma-2-2B based)'}
+          </p>
         </div>
 
         <button

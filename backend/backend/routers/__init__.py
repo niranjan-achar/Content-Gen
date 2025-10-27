@@ -1,3 +1,3 @@
-from . import auth, generate, history, reminders
+from . import auth, generate, history, model, reminders
 
-__all__ = ["auth", "generate", "history", "reminders"]
+__all__ = ["auth", "generate", "history", "reminders", "model"]
