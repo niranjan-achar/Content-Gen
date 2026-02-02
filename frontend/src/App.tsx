@@ -35,8 +35,8 @@ function AppRoutes() {
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/generate" element={<ProtectedRoute><Generator /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-          <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
+          {/* <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} /> */}
+          {/* <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} /> */}
           <Route path="/debug" element={<ProtectedRoute><Debug /></ProtectedRoute>} />
         </Routes>
       </main>

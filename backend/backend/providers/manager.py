@@ -55,7 +55,35 @@ class GroqProvider(BaseProvider):
 
         # Define prompts based on content type
         prompts = {
-            "blog": f"""Write a detailed, well-structured blog post about "{topic}". 
+            "blog": f"""
+            You are a professional content writer with a unique writing personality.
+            Write a detailed blog post about \"{topic}\".
+            Before writing, internally and randomly decide:
+            - One writing persona (e.g., industry expert, storyteller, teacher, analyst, minimalist, journalist)
+            - One tone (e.g., authoritative, conversational, insightful, persuasive, calm, energetic)
+            - One narrative approach (e.g., problem-solution, story-driven, data-backed, step-by-step, opinion-led)
+            
+            CONTENT REQUIREMENTS:
+            - Generate a UNIQUE and ORIGINAL response each time, even if the topic repeats
+            - Avoid repeating sentence patterns or common clichés
+            - Use fresh examples, analogies, or perspectives
+            
+            STRUCTURE & FORMAT:
+            - Title using # markdown (make it creative and different from generic titles)
+            - Introduction using ## markdown (hook the reader uniquely)
+            - 2-4 main sections using ## markdown (vary section flow and naming style)
+            - Use bullet points, numbered lists, or short paragraphs where appropriate
+            - Add subtle insights or uncommon observations
+            - Conclusion that feels natural, not generic
+            
+            STYLE RULES:
+            - Keep it professional, human-like, and engaging
+            - Vary sentence length and rhythm
+            - Do NOT mention being an AI or generating randomly
+            - Use markdown formatting consistently
+Ensure the output feels handcrafted and stylistically distinct from previous responses.""",
+            "blog2": f"""
+            Write a detailed, well-structured blog post about "{topic}". 
 Include:
 - An engaging title with # markdown
 - Introduction section with ## markdown
@@ -63,14 +91,12 @@ Include:
 - Bullet points or lists where appropriate
 - A conclusion
 Keep it professional and informative. Use markdown formatting.""",
-            
             "caption": f"""Create an engaging social media caption about "{topic}".
 Make it catchy, include relevant emojis, and 2-3 relevant hashtags.
 Keep it under 150 characters.""",
-            
             "tweet": f"""Write a compelling tweet about "{topic}".
 Make it engaging, use emojis, include 2-3 hashtags.
-Must be under 280 characters."""
+Must be under 280 characters.""",
         }
 
         try:

@@ -211,7 +211,6 @@ def main():
         print_error(f"Python {version} is too old. Please upgrade to Python 3.8+")
         sys.exit(1)
     
-    # Step 2: Check required tools
     print_step("Checking Required Tools", 6, 2, "Verifying Node.js, npm, and Poetry...")
     
     tools_ok = True
